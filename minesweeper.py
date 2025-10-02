@@ -272,6 +272,9 @@ class Game:
                 self.score = 0 # initialize score
                 self.total_moves = 0 # initialize total moves
                 self.wrong_flags = 0 # initialize wrong flags)
+                self.mode = 'solo' # modes: solo, vsAI, soloAI
+                self.turn = 'human' # Keep track of turn for vsAI mode
+                self.ai = None # For AI instance if in vsAI or soloAI mode
         
         def caclulateScore(self):
                 # Count only real board indices (1..N); index 0 is unused in this implementation
@@ -521,21 +524,47 @@ class Game:
         '''
         def play(self): # Configures the board, processes moves, and handle win/loss
                 self.configure() # Ask user for bomb count and generate bomb locations
-                while not self.checkBombPlacement(): # Makes sure bombs are properly placed before starting the game
+                
+                if self.mode == 'solo':
+                        while not self.checkBombPlacement(): # Makes sure bombs are properly placed before starting the game
+                                self.printGame()
+                                #print(f"Bomb Spaces: {self.bomb_spaces}")
+                                self.move(True)
+                                clear()
+                        while self.status == 'Playing':
+                                self.printGame() # Display the current board
+                                #print(f"Bomb Spaces: {self.bomb_spaces}")
+                                self.move()
+                                self.checkWin()
+                                clear() # Clear screen for a fresh board display
                         self.printGame()
-                        #print(f"Bomb Spaces: {self.bomb_spaces}")
-                        self.move(True)
-                        clear()
-                while self.status == 'Playing':
-                        self.printGame() # Display the current board
-                        #print(f"Bomb Spaces: {self.bomb_spaces}")
-                        self.move()
-                        self.checkWin()
-                        clear() # Clear screen for a fresh board display
-                self.printGame()
-                return
+                        return
 
-
+                if self.mode == 'vsAI':
+                        # Human always does the first move
+                        while not self.checkBombPlacement(): # Makes sure bombs are properly placed before starting the game
+                                self.printGame()
+                                self.move(True)
+                                clear()
+                        while self.status == 'Playing':
+                                # Human turn
+                                self.printGame() # Display the current board
+                                if self.turn == 'human':
+                                        self.move()
+                                        self.checkWin()
+                                        self.turn = 'ai'
+                                        clear() # Clear screen for a fresh board display
+                                        continue
+                                
+                                # AI turn
+                                ai_index = self.ai.get_move(self.board)
+                                if ai_index > 0:
+                                        #self.placeholder_AI_unconver(ai_index, prebomb=False)
+                                        self.checkwin()
+                                        self.turn = 'human'
+                                        clear()
+                        self.printGame()
+                        return
 
 '''
 Entity that coordinates initial contact with the user. It is responsible for printing an initial introductory message, as well as enabling multiple games per execution.
