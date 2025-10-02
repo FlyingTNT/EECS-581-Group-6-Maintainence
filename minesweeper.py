@@ -146,7 +146,9 @@ class AI:
 
         @staticmethod
         def easy(board: Board) -> int:
-                return -1
+                """Return a random covered, unflagged cell as a 1..100 index; -1 if none."""
+                candidates = [i for i in range(1, len(board)) if board[i].covered and not board[i].flagged]
+                return random.choice(candidates) if candidates else -1
 
         @staticmethod
         def medium(board: Board) -> int:
@@ -269,17 +271,7 @@ class Game:
                 self.board = Board() # initialize the game board
                 self.score = 0 # initialize score
                 self.total_moves = 0 # initialize total moves
-                self.wrong_flags = 0 # initialize wrong flags
-
-        def easy_ai(self):
-                """Return ('m', row, col) for a random covered, unflagged cell, or None if none."""
-                candidates = [i for i in range(1, len(self.board)) if self.board[i].covered and not self.board[i].flagged]
-                if not candidates:
-                    return None
-                space = random.choice(candidates)
-                row = (space - 1) // 10 + 1
-                col = (space - 1) % 10 + 1
-                return ('m', row, col)
+                self.wrong_flags = 0 # initialize wrong flags)
         
         def caclulateScore(self):
                 # Count only real board indices (1..N); index 0 is unused in this implementation
