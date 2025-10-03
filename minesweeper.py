@@ -566,6 +566,28 @@ class Game:
                         self.printGame()
                         return
 
+                if self.mode == 'soloAI':
+                        # Prebomb: AI makes the first safe uncover
+                        while not self.checkBombPlacement():
+                            self.printGame()
+                            print("(AI Solving) AI is making the first move...")
+                            ai_index = self.ai.get_move(self.board)
+                            if ai_index > 0:
+                                #self.placeholder_mine_space(ai_index, prebomb=True)
+                            clear()
+                
+                        # AI continues until terminal status
+                        while self.status == 'Playing':
+                            self.printGame()
+                            ai_index = self.ai.get_move(self.board)
+                            if ai_index > 0:
+                                #self.placeholder_mine_space(ai_index, prebomb=False)
+                            self.checkWin()
+                            clear()
+
+        self.printGame()
+        return
+
 '''
 Entity that coordinates initial contact with the user. It is responsible for printing an initial introductory message, as well as enabling multiple games per execution.
 '''
