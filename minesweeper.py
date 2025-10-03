@@ -420,24 +420,21 @@ class Game:
 
                 # Get mode
                 while True:
-                        mode = input("Mode? (single / vsAI / soloAI): ").strip().lower()
-                        if mode in ('single', 'vsai', 'soloai'):
+                        mode = input("Select the game mode (solo / vsAI / soloAI): ").strip().lower()
+                        if mode in ('solo', 'vsai', 'soloai'):
                             break
-                        print("Please enter 'single', 'vsAI', or 'soloAI'.")
+                        print("Please enter 'solo', 'vsAI', or 'soloAI'.")
                 
                 self.mode = mode
                 
                 # Get AI difficulty if needed
                 if self.mode in ('vsai', 'soloai'):
                         while True:
-                            diff = input("AI difficulty? (E/M/H): ").strip().upper()
+                            diff = input("Select the AI difficulty (E/M/H): ").strip().upper()
                             if diff in ('E','M','H'):
                                 break
                             print("Please enter E, M, or H.")
                         self.ai = AI(diff)
-                        
-                        # In vsAI the human always starts; in soloAI the AI starts
-                        self.turn = 'human' if self.mode == 'vsai' else 'ai'
 
 
         '''
@@ -543,7 +540,7 @@ class Game:
         The loop breaks once the game status is no longer “Playing”.
         '''
         def play(self): # Configures the board, processes moves, and handle win/loss
-                self.configure() # Ask user for bomb count and generate bomb locations
+                self.configure() # Ask user for bomb count, mode, AI difficulty (if needed), and generate bomb locations
                 
                 if self.mode == 'solo':
                         while not self.checkBombPlacement(): # Makes sure bombs are properly placed before starting the game
@@ -560,11 +557,12 @@ class Game:
                         self.printGame()
                         return
 
-                if self.mode == 'vsAI':
+                if self.mode == 'vsai':
                         # Human always does the first move
                         while not self.checkBombPlacement(): # Makes sure bombs are properly placed before starting the game
                                 self.printGame()
                                 self.move(True)
+                                self.turn = 'ai'
                                 clear()
                         while self.status == 'Playing':
                                 # Human turn
@@ -579,34 +577,33 @@ class Game:
                                 # AI turn
                                 ai_index = self.ai.get_move(self.board)
                                 if ai_index > 0:
-                                        #self.placeholder_AI_unconver(ai_index, prebomb=False)
-                                        self.checkwin()
-                                        self.turn = 'human'
-                                        clear()
+                                    self.move_AI(ai_index)
+                                self.checkWin()
+                                self.turn = 'human'
+                                clear()
                         self.printGame()
                         return
 
-                if self.mode == 'soloAI':
-                        # Prebomb: AI makes the first safe uncover
+                if self.mode == 'soloai':
+                        # AI makes the first safe uncover
                         while not self.checkBombPlacement():
                             self.printGame()
-                            print("(AI Solving) AI is making the first move...")
                             ai_index = self.ai.get_move(self.board)
                             if ai_index > 0:
-                                #self.placeholder_mine_space(ai_index, prebomb=True)
+                                self.move_AI(ai_index, True)
                             clear()
                 
-                        # AI continues until terminal status
+                        # AI continues playing until victory or loss
                         while self.status == 'Playing':
                             self.printGame()
                             ai_index = self.ai.get_move(self.board)
                             if ai_index > 0:
-                                #self.placeholder_mine_space(ai_index, prebomb=False)
+                                self.move_AI(ai_index)
                             self.checkWin()
                             clear()
 
-        self.printGame()
-        return
+                self.printGame()
+                return
 
 '''
 Entity that coordinates initial contact with the user. It is responsible for printing an initial introductory message, as well as enabling multiple games per execution.
