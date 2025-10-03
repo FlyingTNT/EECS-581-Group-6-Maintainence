@@ -418,6 +418,26 @@ class Game:
 
                 self.bomb_spaces = random.sample(range(1,101), self.bomb_ct) # Randomly select bomb locations on the board without duplicates
 
+                # Get mode
+                while True:
+                        mode = input("Mode? (single / vsAI / soloAI): ").strip().lower()
+                        if mode in ('single', 'vsai', 'soloai'):
+                            break
+                        print("Please enter 'single', 'vsAI', or 'soloAI'.")
+                
+                self.mode = mode
+                
+                # Get AI difficulty if needed
+                if self.mode in ('vsai', 'soloai'):
+                        while True:
+                            diff = input("AI difficulty? (E/M/H): ").strip().upper()
+                            if diff in ('E','M','H'):
+                                break
+                            print("Please enter E, M, or H.")
+                        self.ai = AI(diff)
+                        
+                        # In vsAI the human always starts; in soloAI the AI starts
+                        self.turn = 'human' if self.mode == 'vsai' else 'ai'
 
 
         '''
