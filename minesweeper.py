@@ -116,9 +116,9 @@ class Board: # Represents the minesweeper board and handles neighbor calcualtion
                 if (num - GRID_SIZE > 0):
                         neighbors.append(num - GRID_SIZE) # Add up
                 if (not isLeftEdge) and (num - GRID_SIZE > 0):
-                        neighbors.append(num - GRID_SIZE + 1) # Add up-left
+                        neighbors.append(num - (GRID_SIZE + 1)) # Add up-left
                 if (not isRightEdge) and (num - GRID_SIZE > 0):
-                        neighbors.append(num - GRID_SIZE - 1) # Add up-right
+                        neighbors.append(num - (GRID_SIZE - 1)) # Add up-right
                 if (not isLeftEdge) and (num + GRID_SIZE < (GRID_SIZE * GRID_SIZE) + 1):
                         neighbors.append(num + GRID_SIZE - 1) # Add down-left
                 if (not isRightEdge) and (num + GRID_SIZE < (GRID_SIZE * GRID_SIZE) + 1):
@@ -623,17 +623,19 @@ class Game:
                 # Collect grid size preference using same structure
                 i = 0
                 while i == 0:
-                        try:
-                                size_input = input("Chose Grid Size - Small 10 x 10, Medium 15 x 15, Large 25 x 25 (Please enter s, m or l): ").lower()
+        
+                        size_input = input("Chose Grid Size - Small 10 x 10, Medium 15 x 15, Large 25 x 25 (Please enter s, m or l): ").lower()
 
-                                if size_input == 's':
+                        if size_input == 's':
                                         GRID_SIZE = 10 
-                                elif size_input == 'm':
+                                        i = 1
+                        elif size_input == 'm':
                                         GRID_SIZE = 15
-                                elif size_input == 'l':
+                                        i = 1
+                        elif size_input == 'l':
                                         GRID_SIZE = 25
-                                i = 1
-                        except: 
+                                        i = 1 
+                        else: 
                                 print("Invalid Grid Size")
                 self.board = Board() #update board size 
                                 
