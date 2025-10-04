@@ -193,46 +193,101 @@ class AI:
 
         @staticmethod
         def hard(board: Board) -> int:
+                """Get the index of the cell the hard AI would reveal
+
+                Args:
+                    board (Board): The current board state
+
+                Returns:
+                    int: The index in the board array of the cell to reveal.
+                """
+                # Pre-generate the neighbor indexes for each cell in the board
                 AI.neighborsList = [Board.getNeighbors(i) for i in range(len(board))]
+
+                # Set a timeout in three seconds.
                 AI.timeout = time.time() + 3
+
+                # Try to get a guaranteed safe cell. Will return -1 if it can't find one or if the timeout is reached
                 safeCell = AI.getSafeCell(board)
+
+                # If it found a safe cell, return that. Otherwise fall back to the medium AI
                 return safeCell if safeCell > 0 else AI.medium(board)
 
+        # A list of the neighbor indexes for each cell in the board, so that they aren't calculated over and over
         neighborsList = []
+
+        # The timeout time for the hard AI
         timeout = 0
 
         @staticmethod
         def getSafeCell(board: Board) -> int:
+                """Tries to get a cell on the given board that is guaranteed to be safe
+
+                Will end early if the time is after AI.timeout
+
+                Args:
+                    board (Board): The board state
+
+                Returns:
+                    int: The index of the safe cell, or -1 if no such cell was founf
+                """
+
+                # A list where an index is -1 if its cell is covered, else it is the number of allowed adjacent mines
                 allowedNeighbors = [(-1 if cell.covered else cell.adjMines) for cell in board]
+
+                # A list of cells that can be ignored in the processing (because they have no useful information)
                 ignoreCells = [True for _ in board]
 
+                # When the function finds that a cell is unsafe, it will mark the corresponding index in this list
+                # This reduces duplicated work because to show that a cell is unsafe, we find a valid board state where
+                # that cell is a mine, and so we can also mark all other mined cells in that state as unsafe and not process
+                # them again
                 globalPlacedMines = [False for _ in allowedNeighbors]
+
+                # The following loop finds all cells that are guaranteed to be mines because a number's number of unrevealed neighbor cells is equal to its number
+                # It also updates the ignoreCells list to mark all useful cells as not ignored
                 placedMine = True
 
+                # While we found a new mine in the last iteration,
                 while placedMine:
                         placedMine = False
 
+                        # For each cell in the board
                         for i in range(1, len(allowedNeighbors)):
+                                # If the cell is unrevealed, skip it
                                 if allowedNeighbors[i] < 0:
                                         continue
-
+                                
+                                # Mark the cell as useful
                                 ignoreCells[i] = False
 
+                                # Get the neighbors of the cell
                                 neighbors = AI.neighborsList[i]
 
+                                # Mark all non-mine unrevealed neighbors as useful
                                 for neighbor in neighbors:
                                         if ignoreCells[neighbor] and allowedNeighbors[neighbor] <= -1 and not globalPlacedMines[neighbor]:
                                                 ignoreCells[neighbor] = False
 
+                                # If this cell's number is zero, mark it as unuseful
                                 if allowedNeighbors[i] == 0:
                                         ignoreCells[i] = True
                                         continue
                                 
+                                # Get all of the unrevealed non-mine neighbors
                                 freeNeighbors = [cell for cell in neighbors if (allowedNeighbors[cell] <= -1 and not globalPlacedMines[cell])]
+
+                                # If this cell's number is equal to the number of free neighbors
                                 if allowedNeighbors[i] == len(freeNeighbors):
+                                        # For each free neighbor
                                         for cell in freeNeighbors:
+                                                # Mark it not useful
                                                 ignoreCells[cell] = True
+
+                                                # Mark it unsafe
                                                 globalPlacedMines[cell] = True
+
+                                                # For each of *its* neighbors, if it is a number cell, recalculate its number given this cell is a mine
                                                 for index in AI.neighborsList[cell]:
                                                         if allowedNeighbors[index] < 0:
                                                                 continue
@@ -242,9 +297,10 @@ class AI:
                                                                 if globalPlacedMines[nn]:
                                                                         allowedNeighbors[index] -= 1
 
-                                                #print(f"{Board.getCellString(cell)} is a mine.")
+                                        # Mark that we placed a mine this iteration
                                         placedMine = True
 
+                # If there is any non-mine unrevealed cell that has a neighbor with number zero, return that cell
                 for i in range(1, len(allowedNeighbors)):
                         if ignoreCells[i]:
                                 continue
@@ -260,214 +316,322 @@ class AI:
                         for neighbor in neighbors:
                                 if allowedNeighbors[neighbor] == 0:
                                         return i
-                                
+
+                # 1-2-1 rule: if there are any cells in line in a 1-2-1 arrangement, the cells up/down from the 2 (or left/right if it is vertical) are guaranteed safe
                 for i in range(1, len(allowedNeighbors)):
+
+                        # If this cell is not a 2, skip it
                         if allowedNeighbors[i] != 2:
                                 continue
 
+                        # Get the indexes of the cells directly up, down, left, and right
                         up = i - GRID_SIZE
                         down = i + GRID_SIZE
                         left = i - 1
                         right = i + 1
 
+                        # Check that the up/down/left/right indexes are good (this cell isn't on the corresponding edge of the board)
                         upGood = up > 0
                         downGood = down < len(allowedNeighbors)
                         leftGood = i % GRID_SIZE != 0
                         rightGood = i % GRID_SIZE != GRID_SIZE - 1
 
+                        # If this is a vertical 1-2-1
                         if upGood and downGood and allowedNeighbors[up] == 1 and allowedNeighbors[down] == 1:
+                                # If the left cell is valid and unrevealed, return it
                                 if leftGood:
                                         if allowedNeighbors[left] < 0 and allowedNeighbors[down - 1] < 0 and allowedNeighbors[up - 1] < 0:
                                                 return left
                                 
+                                # If the right cell is valid and unrevealed, return it
                                 if rightGood:
                                         if allowedNeighbors[right] < 0 and allowedNeighbors[down + 1] < 0 and allowedNeighbors[up + 1] < 0:
                                                 return right
-                                        
+
+                        # If this is a horizontal 1-2-1
                         if leftGood and rightGood and allowedNeighbors[left] == 1 and allowedNeighbors[right] == 1:
+                                # If the up cell is valid and unrevealed, return it
                                 if upGood:
                                         if allowedNeighbors[up] < 0 and allowedNeighbors[up - 1] < 0 and allowedNeighbors[up + 1] < 0:
                                                 return up
-                                        
+
+                                # If the down cell is valid and unrevealed, return it
                                 if downGood:
                                         if allowedNeighbors[down] < 0 and allowedNeighbors[down - 1] < 0 and allowedNeighbors[down + 1] < 0:
                                                 return down
                 
-
+                # If none of the above rules apply, use a recursive algorithm to try and find a safe cell
+                # This will never return a unsafe cell, but may fail to find a safe cell if the timeout is hit
                 for i in range(1, len(allowedNeighbors)):
+                        # If the timeout is hit, stop checking
                         if time.time() > AI.timeout:
-                                return -1
+                                break
 
+                        # If this cell is marked ignored, skip it
                         if ignoreCells[i]:
                                 continue
 
+                        # If this cell is revealed, skip it
                         if allowedNeighbors[i] >= 0:
                                 continue
-
+                        
+                        # If this cell is already known to be unsafe, skip it
                         if globalPlacedMines[i]:
                                 continue
 
-                        neighbors = AI.neighborsList[i]
-
+                        # Get the 'loop' of all useful cells connected to this one. The algorithm will solve the entire loop at once.
                         loop: list[int] = []
                         AI.getLoop(ignoreCells, i, loop)
 
-                        solution = AI.solveLoop(ignoreCells, allowedNeighbors, loop, globalPlacedMines)
+                        # Solve the loop. This will mark all cells found to be unsafe in globalPlacedMines
+                        # It will return the index of a guaranteed safe cell, if one exists in the loop (unless the timeout was hit)
+                        solution = AI.solveLoop(allowedNeighbors, loop, globalPlacedMines)
 
+                        # If a guaranteed safe cell was found, return it
                         if solution != -1:
                                 return solution
                         
+                        # Mark all cells in the loop as ignored (because they have already been solved)
                         for cell in loop:
                                 ignoreCells[cell] = True
 
+                # If we found no safe cell, return -1
                 return -1
         
         @staticmethod
         def canPutMine(allowedNeighbors: list[int], cell: int) -> bool:
+                """Checks whetehr the given cell would be a valid spot for a mine based on the given allowedNeighbors array
+
+                Args:
+                    allowedNeighbors (list[int]): An array of the number of neighboring bombs each cell is allowed to have
+                    cell (int): The cell to check
+
+                Returns:
+                    bool: True if no neighbors have 0 allowed neighboring bombs or False otherwise
+                """
+                # If this cell is revealed, return false
                 if allowedNeighbors[cell] >= 0:
                         return False
 
-                neighbors = AI.neighborsList[cell]
-
-                for index in neighbors:
+                # If any neighbor has 0 allowed neighboring bombs, return false
+                for index in AI.neighborsList[cell]:
                         if allowedNeighbors[index] == 0:
                                 return False
                 
                 return True
 
         @staticmethod
-        def putMine(ignore: list[bool], allowedNeighbors: list[int], cell: int) -> bool:
+        def putMine(allowedNeighbors: list[int], cell: int) -> bool:
+                """Updates allowedNeighbors to reflect a mine being placed on the given cell, if such a mine would be valid
+
+                Args:
+                    allowedNeighbors (list[int]): An array of the number of neighboring bombs each cell is allowed to have
+                    cell (int): The cell to mine
+
+                Returns:
+                    bool: True if the given cell was allowed to have a mine or False otherwise
+                """
+                # If the cell is revealed, return False
                 if allowedNeighbors[cell] >= 0:
                         return False
 
+                # Get the cell's neighbors
                 neighbors = AI.neighborsList[cell]
 
+                # If any neighboring cell can't have any neighboring mines, return false
                 for index in neighbors:
                         if allowedNeighbors[index] == 0:
                                 return False
                 
+                # Place the mine (decrement the number of allowed adjacent mines of all neighbors)
                 for index in neighbors:
                         allowedNeighbors[index] -= 1
-                
-                ignore[cell] = True
                 
                 return True
 
         @staticmethod 
-        def removeMine(ignore: list[bool], allowedNeighbors: list[int], cell: int):
-                ignore[cell] = False
+        def removeMine(allowedNeighbors: list[int], cell: int):
+                """Undoes the changes made in a putMine() action
 
+                Args:
+                    allowedNeighbors (list[int]): An array of the number of neighboring bombs each cell is allowed to have
+                    cell (int): The cell to remove a mine from
+                """
+
+                # Remove the mine (increment the number of allowed adjacent mines of all neighbors)
                 for index in AI.neighborsList[cell]:
                         allowedNeighbors[index] += 1
 
         @staticmethod
         def getLoop(ignore: list[bool], cell: int, loop: list[int]):
+                """Gets all non-ignored cells connected to the given cell and adds them to the given list
+
+                Args:
+                    cell (int): The cell to get the loop of
+                    loop (list[int]): The list to add items to
+                """
+                # If this cell is ignored, skip it
                 if ignore[cell]:
                         return
                 
-                if cell in loop:
-                        return
-                
+                # Add the cell to the loop
                 loop.append(cell)
 
+                # Mark to ignore the cell (so we don't recurse down it again)
+                ignore[cell] = True
+
+                # Recurse to every neighbor of the cell
                 for index in AI.neighborsList[cell]:
-                        if ignore[index]:
-                                continue
                         AI.getLoop(ignore, index, loop)
         
         @staticmethod
-        def solveLoop(ignore: list[bool], allowedNeighbors: list[int], loop: list[int], globalPlacedMines: list[bool]) -> int:
+        def solveLoop(allowedNeighbors: list[int], loop: list[int], globalPlacedMines: list[bool]) -> int:
+                """Solves the given loop of cells by either returning the index of a safe cell or marking all of the cells in the loop as unsafe in globalPlacedMines
 
-                #loop = [item for item in loop if allowedNeighbors[item] < 0]
+                May end early if AI.timeout is hit
 
+                Args:
+                    allowedNeighbors (list[int]): An array of the number of neighboring bombs each cell is allowed to have
+                    loop (list[int]): The cells in the loop to solve
+                    globalPlacedMines (list[bool]): A list of whether each cell is known to be unsafe
+
+                Returns:
+                    int: -1 if no guaranteed safe cell was found, or the index of the cafe cell otherwise
+                """
+
+                # For each cell in the loop
                 for i in loop:
+                        # If we've hit the timeout, return -1
                         if time.time() > AI.timeout:
                                 return -1
 
+                        # If the cell is already known to be unsafe, skip it
                         if globalPlacedMines[i]:
                                 continue
 
+                        # If the cell is revealed, skip it 
                         if allowedNeighbors[i] >= 0:
                                 continue
 
-                        if not AI.putMine(ignore, allowedNeighbors, i):
+                        # Try to put a mine on the cell; if we can't return the cell
+                        if not AI.putMine(allowedNeighbors, i):
                                 return i
                         
+                        # A list of cells that can't be mines in this board state
                         banned = [not AI.canPutMine(allowedNeighbors, i) for i in range(len(allowedNeighbors))]
                         
-                        thisPlacedMines = [False for _ in ignore]
+                        # A list where an index is True if its cell is a mine in the current solution as we're building it recursively
+                        thisPlacedMines = [False for _ in allowedNeighbors]
                         thisPlacedMines[i] = True
 
-                        if AI.tryFindSolution(ignore, allowedNeighbors, loop, thisPlacedMines, globalPlacedMines, banned, 1):
-                                AI.removeMine(ignore, allowedNeighbors, i)
+                        # Try to find a soltion given that this cell is a mine. If we can, this cell is unsafe.
+                        if AI.tryFindSolution(allowedNeighbors, loop, thisPlacedMines, globalPlacedMines, banned, 0):
+                                AI.removeMine(allowedNeighbors, i)
                                 continue
                         
-                        AI.removeMine(ignore, allowedNeighbors, i)
+                        # If we didn't find a solution, this cell is safe, so return it
+                        AI.removeMine(allowedNeighbors, i)
                         return i
                 
+                # If we found no safe cell, return -1
                 return -1
 
 
         @staticmethod
-        def tryFindSolution(ignore: list[bool], allowedNeighbors: list[int], loop: list[int], thisPlacedMines: list[bool], globalPlacedMines: list[bool], banned: list[bool], start: int) -> bool:
+        def tryFindSolution(allowedNeighbors: list[int], loop: list[int], thisPlacedMines: list[bool], globalPlacedMines: list[bool], banned: list[bool], start: int) -> bool:
+                """Tries to find a valid solution for the given loop in the given board state
+
+                May end early if AI.timeout is reached
+
+                Args:
+                    allowedNeighbors (list[int]): An array of the number of neighboring bombs each cell is allowed to have
+                    loop (list[int]): The cells that need to be considered in the solution (all other cells are independent)
+                    thisPlacedMines (list[bool]): An array where an elemnt is True if it is a bomb in this board state
+                    globalPlacedMines (list[bool]): A list of whether each cell is known to be unsafe
+                    banned (list[bool]): A list of cells that cannot be bombs in this board state
+                    start (int): The index in the loop to start checking from
+
+                Returns:
+                    bool: True if there is a soltution for the given borad state or the timeout was reached, or False otherwise
+                """
+
+                # Check if the board is already solved
                 solved = True
                 
+                # If any of the items have at least 1 allowed neighboring bomb, it is not solved
                 for item in loop:
                         if allowedNeighbors[item] > 0:
                                 solved = False
                                 break
                 
+                # If it is solved, mark all of the mines in the solution as unsafe in globalPlacedMines and return True
                 if solved:
                         for i, canBeMine in enumerate(thisPlacedMines):
                                 if canBeMine:
                                         globalPlacedMines[i] = True
-                                        #print(f"{Board.getCellString(i)} is bad.")
                         return True
 
+                # For each cell in the loop,
                 for i, cell in enumerate(loop):
+                        # If we've hit the timeout, return True
                         if time.time() > AI.timeout:
                                 return True
+                        
+                        # If this cell is before the start (has already been checked), skip it
+                        if i < start:
+                                continue
 
+                        # If this cell is already a mine in this solution, skip it
                         if thisPlacedMines[cell]:
                                 continue
 
+                        # If this cell is known to not be a mine in this solution, skip it
                         if banned[cell]:
                                 continue
-
-                        if not AI.putMine(ignore, allowedNeighbors, cell):
+                        
+                        # Try to make this cell a mine. If it can't be one, skip it
+                        if not AI.putMine(allowedNeighbors, cell):
                                 continue
 
+                        # Mark that this cell is a mine in the current solution
                         thisPlacedMines[cell] = True
 
+                        # For each neighbor of the cell, update its banned value
                         for neighbor in AI.neighborsList[cell]:
                                 if not AI.canPutMine(allowedNeighbors, neighbor):
                                         banned[neighbor] = True
 
-                        if AI.tryFindSolution(ignore, allowedNeighbors, loop, thisPlacedMines, globalPlacedMines, banned, i + 1):
-                                AI.removeMine(ignore, allowedNeighbors, cell)
+                        # Try to find a solution given this cell is a mine. If we did, return true.
+                        if AI.tryFindSolution(allowedNeighbors, loop, thisPlacedMines, globalPlacedMines, banned, i + 1):
+                                AI.removeMine(allowedNeighbors, cell)
                                 return True
                         
-                        AI.removeMine(ignore, allowedNeighbors, cell)
+                        # If we didn't find a solution where this cell is a mine, unmark it as a mine in this solution
+                        AI.removeMine(allowedNeighbors, cell)
                         thisPlacedMines[cell] = False
 
+                        # For each neighbor of the cell, update its banned value
                         for neighbor in AI.neighborsList[cell]:
                                 if AI.canPutMine(allowedNeighbors, neighbor):
                                         banned[neighbor] = False
                 
+                # Check if the board is already solved
                 solved = True
-
+                
+                # If any of the items have at least 1 allowed neighboring bomb, it is not solved
                 for item in loop:
                         if allowedNeighbors[item] > 0:
                                 solved = False
                                 break
                 
+                # If it is solved, mark all of the mines in the solution as unsafe in globalPlacedMines and return True
                 if solved:
                         for i, canBeMine in enumerate(thisPlacedMines):
                                 if canBeMine:
                                         globalPlacedMines[i] = True
-                                        #print(f"{Board.getCellString(i)} is bad.")
                         return True
                 
+                # Return that we didn't find a solution
                 return False
 
 
