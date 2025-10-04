@@ -145,7 +145,9 @@ class AI:
 
         @staticmethod
         def easy(board: Board) -> int:
-                return -1
+                """Return a random covered, unflagged cell as an index (-1 if none)"""
+                candidates = [i for i in range(1, len(board)) if board[i].covered and not board[i].flagged]
+                return random.choice(candidates) if candidates else -1
 
         @staticmethod
         def medium(board: Board) -> int:
@@ -486,8 +488,10 @@ class Game:
                 #self.board = Board() # initialize the game board
                 self.score = 0 # initialize score
                 self.total_moves = 0 # initialize total moves
-                self.wrong_flags = 0 # initialize wrong flags
-
+                self.wrong_flags = 0 # initialize wrong flags)
+                self.mode = 'solo' # modes: solo, vsAI, soloAI
+                self.turn = 'human' # Keep track of turn for vsAI mode
+                self.ai = None # For AI instance if in vsAI or soloAI mode
         
         def caclulateScore(self):
                 # Count only real board indices (1..N); index 0 is unused in this implementation
@@ -657,6 +661,23 @@ class Game:
 
                 self.bomb_spaces = random.sample(range(1,((GRID_SIZE * GRID_SIZE) + 1)), self.bomb_ct) # Randomly select bomb locations on the board without duplicates
 
+                # Get mode
+                while True:
+                        mode = input("Select the game mode (solo / vsAI / soloAI): ").strip().lower()
+                        if mode in ('solo', 'vsai', 'soloai'):
+                            break
+                        print("Please enter 'solo', 'vsAI', or 'soloAI'.")
+                
+                self.mode = mode
+                
+                # Get AI difficulty if needed
+                if self.mode in ('vsai', 'soloai'):
+                        while True:
+                            diff = input("Select the AI difficulty (E/M/H): ").strip().upper()
+                            if diff in ('E','M','H'):
+                                break
+                            print("Please enter E, M, or H.")
+                        self.ai = AI(diff)
 
 
         '''
@@ -731,6 +752,44 @@ class Game:
                                         else:
                                                 self.board[space].covered = False
 
+        def move_AI(self, space, prebomb=False):
+            if prebomb:
+                # SPACE-BOMB COLLISION PROBLEM
+                if space in self.bomb_spaces: # In the event the selected space is where a mine was planned to be...
+                        problem_index = self.bomb_spaces.index(space) # Isolate where in the list of bomb spaces the user space and bomb collide.
+                        while space == self.bomb_spaces[problem_index]: # While these two values are the same...
+                                self.bomb_spaces[problem_index] = random.randint(1, 100) # ...we will reroll that bomb space.
+                                i = 0 # Then we'll check how many times the new bomb space value appears.
+                                for place in self.bomb_spaces: # Check every bomb space
+                                        if self.bomb_spaces[problem_index] == place: # If the new space appears in bomb spaces, increment.
+                                                i += 1 # This should increment only once (when the new space compares itself).
+                                if i > 1: # If the new bomb space increments multiple times, we still have a collision.
+                                        self.bomb_spaces[problem_index] = space # We can't let the while loop end so reset with space.
+                
+                # CALL BOARD GENERATION
+                self.placeBombs()
+                # UPDATE BOARD w/ FIRST SPACE
+                if self.board[space].adjMines == 0:
+                        self.propagate(space) # Reveal spaces around the 0 space.
+                else:
+                        self.board[space].covered = False
+            else:
+                    # There's a few things we check here:
+                            # Is the space a bomb?
+                            # Is the space a flag?
+                            # Is the space 0?
+                            # Is the space any other value?
+                    # We will check if the space is a bomb next.
+                    if self.board[space].bomb:
+                            for bomb in self.bomb_spaces: # Reveal all bombs on the board.
+                                    self.board[bomb].covered = False
+                            self.status = "Game Over: Loss" # Lose the game.
+                    # We will check if the space is the value 0.
+                    elif self.board[space].adjMines == 0: # 0 is a special value because we...
+                            self.propagate(space) # ...reveal the neighbor values.
+                    # The space must be empty and a regular number. Reveal it!
+                    else:
+                            self.board[space].covered = False
 
         #Checks if all non-bomb spaces are uncovered. Doesn't return anything, but sets status to Victory if necessary.
         def checkWin(self):
@@ -762,22 +821,70 @@ class Game:
         The loop breaks once the game status is no longer “Playing”.
         '''
         def play(self): # Configures the board, processes moves, and handle win/loss
-                self.configure() # Ask user for bomb count and generate bomb locations
-                while not self.checkBombPlacement(): # Makes sure bombs are properly placed before starting the game
+                self.configure() # Ask user for bomb count, mode, AI difficulty (if needed), and generate bomb locations
+                
+                if self.mode == 'solo':
+                        while not self.checkBombPlacement(): # Makes sure bombs are properly placed before starting the game
+                                self.printGame()
+                                #print(f"Bomb Spaces: {self.bomb_spaces}")
+                                self.move(True)
+                                clear()
+                        while self.status == 'Playing':
+                                self.printGame() # Display the current board
+                                #print(f"Bomb Spaces: {self.bomb_spaces}")
+                                self.move()
+                                self.checkWin()
+                                clear() # Clear screen for a fresh board display
                         self.printGame()
-                        #print(f"Bomb Spaces: {self.bomb_spaces}")
-                        self.move(True)
-                        clear()
-                while self.status == 'Playing':
-                        self.printGame() # Display the current board
-                        #print(f"Bomb Spaces: {self.bomb_spaces}")
-                        self.move()
-                        self.checkWin()
-                        clear() # Clear screen for a fresh board display
+                        return
+
+                if self.mode == 'vsai':
+                        # Human always does the first move
+                        while not self.checkBombPlacement(): # Makes sure bombs are properly placed before starting the game
+                                self.printGame()
+                                self.move(True)
+                                self.turn = 'ai'
+                                clear()
+                        while self.status == 'Playing':
+                                # Human turn
+                                self.printGame() # Display the current board
+                                if self.turn == 'human':
+                                        self.move()
+                                        self.checkWin()
+                                        self.turn = 'ai'
+                                        clear() # Clear screen for a fresh board display
+                                        continue
+                                
+                                # AI turn
+                                ai_index = self.ai.get_move(self.board)
+                                if ai_index > 0:
+                                    self.move_AI(ai_index)
+                                self.checkWin()
+                                self.turn = 'human'
+                                clear()
+                        self.printGame()
+                        return
+
+                if self.mode == 'soloai':
+                        # AI makes the first safe uncover
+                        while not self.checkBombPlacement():
+                            self.printGame()
+                            ai_index = self.ai.get_move(self.board)
+                            if ai_index > 0:
+                                self.move_AI(ai_index, True)
+                            clear()
+                
+                        # AI continues playing until victory or loss
+                        while self.status == 'Playing':
+                            self.printGame()
+                            ai_index = self.ai.get_move(self.board)
+                            if ai_index > 0:
+                                self.move_AI(ai_index)
+                            self.checkWin()
+                            clear()
+
                 self.printGame()
                 return
-
-
 
 '''
 Entity that coordinates initial contact with the user. It is responsible for printing an initial introductory message, as well as enabling multiple games per execution.
