@@ -185,8 +185,8 @@ class AI:
 
                                 if flagged_neighbors == board[i].adjMines:  # Second, if the number of flagged neighbors of a revealed cell equals that cell’s number, the AI should open all other hidden neighbors.
                                         for neighbor in possible_neighbors:
-                                                if board[neighbor].flagged == False:
-                                                              return i
+                                                if board[neighbor].flagged == False and board[neighbor].covered:
+                                                              return neighbor
 
 
                 return AI.easy(board)
