@@ -509,6 +509,44 @@ class Game:
                                         else:
                                                 self.board[space].covered = False
 
+        def move_AI(self, space, prebomb=False):
+            if prebomb:
+                # SPACE-BOMB COLLISION PROBLEM
+                if space in self.bomb_spaces: # In the event the selected space is where a mine was planned to be...
+                        problem_index = self.bomb_spaces.index(space) # Isolate where in the list of bomb spaces the user space and bomb collide.
+                        while space == self.bomb_spaces[problem_index]: # While these two values are the same...
+                                self.bomb_spaces[problem_index] = random.randint(1, 100) # ...we will reroll that bomb space.
+                                i = 0 # Then we'll check how many times the new bomb space value appears.
+                                for place in self.bomb_spaces: # Check every bomb space
+                                        if self.bomb_spaces[problem_index] == place: # If the new space appears in bomb spaces, increment.
+                                                i += 1 # This should increment only once (when the new space compares itself).
+                                if i > 1: # If the new bomb space increments multiple times, we still have a collision.
+                                        self.bomb_spaces[problem_index] = space # We can't let the while loop end so reset with space.
+                
+                # CALL BOARD GENERATION
+                self.placeBombs()
+                # UPDATE BOARD w/ FIRST SPACE
+                if self.board[space].adjMines == 0:
+                        self.propagate(space) # Reveal spaces around the 0 space.
+                else:
+                        self.board[space].covered = False
+            else:
+                    # There's a few things we check here:
+                            # Is the space a bomb?
+                            # Is the space a flag?
+                            # Is the space 0?
+                            # Is the space any other value?
+                    # We will check if the space is a bomb next.
+                    if self.board[space].bomb:
+                            for bomb in self.bomb_spaces: # Reveal all bombs on the board.
+                                    self.board[bomb].covered = False
+                            self.status = "Game Over: Loss" # Lose the game.
+                    # We will check if the space is the value 0.
+                    elif self.board[space].adjMines == 0: # 0 is a special value because we...
+                            self.propagate(space) # ...reveal the neighbor values.
+                    # The space must be empty and a regular number. Reveal it!
+                    else:
+                            self.board[space].covered = False
 
         #Checks if all non-bomb spaces are uncovered. Doesn't return anything, but sets status to Victory if necessary.
         def checkWin(self):
