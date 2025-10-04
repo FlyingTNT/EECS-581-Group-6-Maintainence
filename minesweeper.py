@@ -146,7 +146,7 @@ class AI:
 
         @staticmethod
         def easy(board: Board) -> int:
-                """Return a random covered, unflagged cell as a 1..100 index; -1 if none."""
+                """Return a random covered, unflagged cell as an index (-1 if none)"""
                 candidates = [i for i in range(1, len(board)) if board[i].covered and not board[i].flagged]
                 return random.choice(candidates) if candidates else -1
 
