@@ -947,7 +947,10 @@ class Game:
                     if self.board[space].bomb:
                             for bomb in self.bomb_spaces: # Reveal all bombs on the board.
                                     self.board[bomb].covered = False
-                            self.status = "Game Over: Loss" # Lose the game.
+                            if self.mode == 'vsai':
+                                    self.status = "Game Over: You Won, AI loss" 
+                            else:
+                                    self.status = "Game Over: AI Loss" # Lose the game.
                     # We will check if the space is the value 0.
                     elif self.board[space].adjMines == 0: # 0 is a special value because we...
                             self.propagate(space) # ...reveal the neighbor values.
@@ -963,8 +966,15 @@ class Game:
                         if self.board[index].covered:
                                 remaining_space_check += 1 # Increment remaining empty or flagged spaces.
                 if remaining_space_check == self.bomb_ct: # When there are the same amount of empty or flagged spaces as bombs on the field...
-                        self.status = "Victory!" # The game has been won! End game loop.
-                    
+                        if self.mode == 'vsai':
+                                # checkWin is called immediately after the move, before turn is flipped,
+                                # so `self.turn` indicates who just moved.
+                                if self.turn == 'human':
+                                        self.status = "Victory! You Won"
+                                else:
+                                        self.status = "You loss, AI Won"
+                        else:
+                                self.status = "Victory!"
 
         # Check if all bombs have been correctly placed on the board. Needed to ensure first mined cell doesn't actually have a bomb in it.
         def checkBombPlacement(self): 
